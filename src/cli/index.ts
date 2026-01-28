@@ -75,7 +75,8 @@ ${text("OPTIONS:", ANSI.fg.yellow)}
   -v, --version     Show version
 
 ${text("DATA SOURCES:", ANSI.fg.yellow)}
-  OAuth (default)   Uses Claude Code credentials (~/.claude/.credentials.json)
+  OAuth (default)   Uses OpenCode (~/.local/share/opencode/auth.json)
+                    or Claude Code (~/.claude/.credentials.json) credentials
                     Shows personal rate limits (5-hour, 7-day windows)
   Admin API         Requires ANTHROPIC_ADMIN_API_KEY (organizations only)
                     Shows cost and token usage
@@ -331,7 +332,7 @@ async function main(): Promise<void> {
 
 		if (outputs.length === 0) {
 			console.log(text("No data sources configured.", ANSI.fg.yellow))
-			console.log("Run 'claude' to authenticate, or set ANTHROPIC_ADMIN_API_KEY for org usage.")
+			console.log("Run 'opencode auth login' or install Claude Code to authenticate.")
 		} else {
 			console.log(outputs.join("\n\n"))
 		}
