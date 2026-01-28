@@ -3,7 +3,7 @@ import { tool } from "@opencode-ai/plugin"
 
 import { getAllProviders } from "./providers"
 import type { Provider, ProviderCredentials, TimePeriod, UsageData } from "./types"
-import { type Config, SimpleCache, formatUsageSummary, parseConfig } from "./utils"
+import { type Config, SimpleCache, formatUsageTui, parseConfig } from "./utils"
 
 const CACHE_TTL_MS = 5 * 60 * 1000
 
@@ -104,7 +104,7 @@ export const UsageMonitorPlugin: Plugin = async (_ctx: PluginInput) => {
 						args.provider as Provider | undefined,
 					)
 
-					return formatUsageSummary(usageData, {
+					return formatUsageTui(usageData, {
 						currency: state.config.displayCurrency,
 						locale: "en-US",
 						showModelBreakdown: state.config.showModelBreakdown,
