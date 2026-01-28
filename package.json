@@ -6,7 +6,9 @@
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"bin": {
-		"usage-monitor": "./dist/cli.js"
+		"usage-monitor": "./dist/cli.js",
+		"opencode-with-monitor": "./bin/opencode-with-monitor",
+		"with-monitor": "./bin/with-monitor"
 	},
 	"files": ["dist"],
 	"scripts": {
