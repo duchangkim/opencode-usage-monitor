@@ -41,21 +41,32 @@ export interface ProviderCredentials {
 	projectId?: string | undefined
 }
 
+export interface UsageApiError {
+	name: "UsageApiError"
+	message: string
+	provider: Provider
+	statusCode: number
+	cause?: unknown
+}
+
+export function createUsageApiError(
+	provider: Provider,
+	statusCode: number,
+	message: string,
+	cause?: unknown,
+): UsageApiError {
+	return {
+		name: "UsageApiError",
+		message: `[${provider}] ${message}`,
+		provider,
+		statusCode,
+		cause,
+	}
+}
+
 export type UsageResult =
 	| { success: true; data: UsageData }
 	| { success: false; error: UsageApiError }
-
-export class UsageApiError extends Error {
-	constructor(
-		public readonly provider: Provider,
-		public readonly statusCode: number,
-		message: string,
-		public readonly cause?: unknown,
-	) {
-		super(`[${provider}] ${message}`)
-		this.name = "UsageApiError"
-	}
-}
 
 export interface UsageProvider {
 	readonly name: Provider

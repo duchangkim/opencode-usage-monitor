@@ -1,9 +1,9 @@
 import {
 	type ProviderCredentials,
 	type TimePeriod,
-	UsageApiError,
 	type UsageProvider,
 	type UsageResult,
+	createUsageApiError,
 } from "../types"
 
 const ANTHROPIC_ADMIN_API_BASE = "https://api.anthropic.com/v1"
@@ -19,7 +19,7 @@ export class AnthropicProvider implements UsageProvider {
 		if (!credentials.apiKey) {
 			return {
 				success: false,
-				error: new UsageApiError("anthropic", 401, "API key not configured"),
+				error: createUsageApiError("anthropic", 401, "API key not configured"),
 			}
 		}
 
@@ -40,7 +40,7 @@ export class AnthropicProvider implements UsageProvider {
 			if (!response.ok) {
 				return {
 					success: false,
-					error: new UsageApiError("anthropic", response.status, await response.text()),
+					error: createUsageApiError("anthropic", response.status, await response.text()),
 				}
 			}
 
@@ -65,7 +65,7 @@ export class AnthropicProvider implements UsageProvider {
 		} catch (error) {
 			return {
 				success: false,
-				error: new UsageApiError(
+				error: createUsageApiError(
 					"anthropic",
 					0,
 					error instanceof Error ? error.message : "Unknown error",

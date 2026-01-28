@@ -8,6 +8,8 @@
 	"files": ["dist"],
 	"scripts": {
 		"build": "bun build src/index.ts --outdir dist --target bun",
+		"dev": "bun build src/index.ts --outdir dist --target bun --watch",
+		"dev:install": "bun run build && bun run install:local",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",

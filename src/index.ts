@@ -118,5 +118,5 @@ export const UsageMonitorPlugin: Plugin = async (_ctx: PluginInput) => {
 
 export default UsageMonitorPlugin
 
-export type { Provider, UsageData, ProviderCredentials, TimePeriod } from "./types"
-export { UsageApiError } from "./types"
+export type { Provider, UsageData, ProviderCredentials, TimePeriod, UsageApiError } from "./types"
+export { createUsageApiError } from "./types"

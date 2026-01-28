@@ -1,9 +1,9 @@
 import {
 	type ProviderCredentials,
 	type TimePeriod,
-	UsageApiError,
 	type UsageProvider,
 	type UsageResult,
+	createUsageApiError,
 } from "../types"
 
 export class GoogleProvider implements UsageProvider {
@@ -17,13 +17,13 @@ export class GoogleProvider implements UsageProvider {
 		if (!credentials.apiKey && !credentials.projectId) {
 			return {
 				success: false,
-				error: new UsageApiError("google", 401, "API key or project ID not configured"),
+				error: createUsageApiError("google", 401, "API key or project ID not configured"),
 			}
 		}
 
 		return {
 			success: false,
-			error: new UsageApiError(
+			error: createUsageApiError(
 				"google",
 				501,
 				"Google Cloud Billing API not yet implemented - requires OAuth2 service account credentials",

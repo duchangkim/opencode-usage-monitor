@@ -1,9 +1,9 @@
 import {
 	type ProviderCredentials,
 	type TimePeriod,
-	UsageApiError,
 	type UsageProvider,
 	type UsageResult,
+	createUsageApiError,
 } from "../types"
 
 const OPENAI_API_BASE = "https://api.openai.com/v1"
@@ -19,7 +19,7 @@ export class OpenAIProvider implements UsageProvider {
 		if (!credentials.apiKey) {
 			return {
 				success: false,
-				error: new UsageApiError("openai", 401, "API key not configured"),
+				error: createUsageApiError("openai", 401, "API key not configured"),
 			}
 		}
 
@@ -42,7 +42,7 @@ export class OpenAIProvider implements UsageProvider {
 			if (!response.ok) {
 				return {
 					success: false,
-					error: new UsageApiError("openai", response.status, await response.text()),
+					error: createUsageApiError("openai", response.status, await response.text()),
 				}
 			}
 
@@ -72,7 +72,7 @@ export class OpenAIProvider implements UsageProvider {
 		} catch (error) {
 			return {
 				success: false,
-				error: new UsageApiError(
+				error: createUsageApiError(
 					"openai",
 					0,
 					error instanceof Error ? error.message : "Unknown error",

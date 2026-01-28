@@ -1,9 +1,9 @@
 import {
 	type ProviderCredentials,
 	type TimePeriod,
-	UsageApiError,
 	type UsageProvider,
 	type UsageResult,
+	createUsageApiError,
 } from "../types"
 
 const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
@@ -19,7 +19,7 @@ export class OpenRouterProvider implements UsageProvider {
 		if (!credentials.apiKey) {
 			return {
 				success: false,
-				error: new UsageApiError("openrouter", 401, "API key not configured"),
+				error: createUsageApiError("openrouter", 401, "API key not configured"),
 			}
 		}
 
@@ -33,7 +33,7 @@ export class OpenRouterProvider implements UsageProvider {
 			if (!response.ok) {
 				return {
 					success: false,
-					error: new UsageApiError("openrouter", response.status, await response.text()),
+					error: createUsageApiError("openrouter", response.status, await response.text()),
 				}
 			}
 
@@ -58,7 +58,7 @@ export class OpenRouterProvider implements UsageProvider {
 		} catch (error) {
 			return {
 				success: false,
-				error: new UsageApiError(
+				error: createUsageApiError(
 					"openrouter",
 					0,
 					error instanceof Error ? error.message : "Unknown error",
