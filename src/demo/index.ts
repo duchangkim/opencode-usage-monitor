@@ -1,36 +1,108 @@
+import { createAdminApi } from "../data"
 import {
 	ANSI,
-	type WidgetPosition,
+	type UsageLimitDisplay,
 	clearScreen,
-	createWidget,
 	hideCursor,
+	progressBarWithThreshold,
 	showCursor,
 	text,
 } from "../tui"
-import type { UsageData } from "../types"
+import { boxBottom, boxRow, boxTop } from "../tui/renderer"
 
-const MOCK_DATA: UsageData[] = [
+const MOCK_LIMITS: UsageLimitDisplay[] = [
 	{
-		provider: "anthropic",
-		usage: { inputTokens: 125000, outputTokens: 45000, totalTokens: 170000 },
-		cost: { amount: 4.25, currency: "USD" },
-		period: { start: new Date("2025-01-22"), end: new Date("2025-01-29") },
+		label: "Session",
+		current: 16,
+		max: 100,
+		resetTime: new Date(Date.now() + 3 * 60 * 60 * 1000 + 58 * 60 * 1000),
 	},
 	{
-		provider: "openai",
-		usage: { inputTokens: 89000, outputTokens: 32000, totalTokens: 121000 },
-		cost: { amount: 2.87, currency: "USD" },
-		period: { start: new Date("2025-01-22"), end: new Date("2025-01-29") },
+		label: "Weekly",
+		current: 2,
+		max: 100,
+		resetTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
 	},
 	{
-		provider: "openrouter",
-		usage: { inputTokens: 45000, outputTokens: 15000, totalTokens: 60000 },
-		cost: { amount: 0.95, currency: "USD" },
-		period: { start: new Date("2025-01-22"), end: new Date("2025-01-29") },
+		label: "Sonnet",
+		current: 0,
+		max: 100,
+		resetTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
 	},
 ]
 
-const POSITIONS: WidgetPosition[] = ["floating", "top", "bottom", "left", "right"]
+function renderLimitsWidget(limits: UsageLimitDisplay[], width: number): string[] {
+	const lines: string[] = []
+	lines.push(boxTop(width, "Claude.ai Limits", { boxStyle: "rounded" }))
+
+	for (const limit of limits) {
+		const barWidth = width - 28
+		const percentage = limit.max > 0 ? (limit.current / limit.max) * 100 : 0
+		const bar = progressBarWithThreshold(limit.current, limit.max, "", {
+			width: barWidth,
+			showPercentage: false,
+			showLabel: false,
+		})
+
+		const pctStr = `${Math.round(percentage)}%`.padStart(3)
+		const resetStr = limit.resetTime ? text(formatTimeShort(limit.resetTime), ANSI.dim) : ""
+
+		const content = `${limit.label.padEnd(8)} ${bar} ${pctStr} ${resetStr}`
+		lines.push(boxRow(content, width, { boxStyle: "rounded" }))
+	}
+
+	lines.push(boxBottom(width, { boxStyle: "rounded" }))
+	return lines
+}
+
+function formatTimeShort(date: Date): string {
+	const diff = date.getTime() - Date.now()
+	if (diff <= 0) return "(now)"
+
+	const hours = Math.floor(diff / (1000 * 60 * 60))
+	const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+
+	if (hours > 24) {
+		const days = Math.floor(hours / 24)
+		return `(${days}d)`
+	}
+	if (hours > 0) {
+		return `(${hours}h ${minutes}m)`
+	}
+	return `(${minutes}m)`
+}
+
+function renderApiUsageWidget(
+	inputTokens: number,
+	outputTokens: number,
+	cost: number,
+	width: number,
+): string[] {
+	const lines: string[] = []
+	lines.push(boxTop(width, "API Usage (This Month)", { boxStyle: "rounded" }))
+
+	const formatTokens = (n: number): string => {
+		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+		if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+		return n.toString()
+	}
+
+	lines.push(
+		boxRow(
+			`Tokens:  ${text(formatTokens(inputTokens), ANSI.fg.cyan)} in / ${text(formatTokens(outputTokens), ANSI.fg.cyan)} out`,
+			width,
+			{ boxStyle: "rounded" },
+		),
+	)
+	lines.push(
+		boxRow(`Cost:    ${text(`$${cost.toFixed(2)}`, ANSI.fg.green)} USD`, width, {
+			boxStyle: "rounded",
+		}),
+	)
+
+	lines.push(boxBottom(width, { boxStyle: "rounded" }))
+	return lines
+}
 
 function printHelp(): void {
 	console.log(`
@@ -38,29 +110,48 @@ ${text("Usage Monitor TUI Demo", ANSI.bold, ANSI.fg.cyan)}
 
 ${text("Controls:", ANSI.bold)}
   ${text("t", ANSI.fg.yellow)} - Toggle widget visibility
-  ${text("p", ANSI.fg.yellow)} - Cycle through positions (floating → top → bottom → left → right)
-  ${text("c", ANSI.fg.yellow)} - Toggle compact mode
-  ${text("s", ANSI.fg.yellow)} - Cycle box styles (rounded → single → double)
-  ${text("d", ANSI.fg.yellow)} - Toggle demo data (with/without data)
+  ${text("p", ANSI.fg.yellow)} - Cycle through positions
+  ${text("1", ANSI.fg.yellow)} - Show Claude.ai Limits widget
+  ${text("2", ANSI.fg.yellow)} - Show API Usage widget  
+  ${text("3", ANSI.fg.yellow)} - Show both widgets
+  ${text("a", ANSI.fg.yellow)} - Fetch real API data (requires ANTHROPIC_ADMIN_API_KEY)
   ${text("q", ANSI.fg.yellow)} - Quit
 
 ${text("Press any key to start...", ANSI.dim)}
 `)
 }
 
+async function fetchRealData(): Promise<{
+	inputTokens: number
+	outputTokens: number
+	cost: number
+} | null> {
+	const apiKey = process.env.ANTHROPIC_ADMIN_API_KEY
+	if (!apiKey) {
+		console.log(text("ANTHROPIC_ADMIN_API_KEY not set", ANSI.fg.red))
+		return null
+	}
+
+	const api = createAdminApi(apiKey)
+	const result = await api.getMonthlyUsageSummary()
+
+	if (!result.success) {
+		console.log(text(`API Error: ${result.error.message}`, ANSI.fg.red))
+		return null
+	}
+
+	return {
+		inputTokens: result.data.totalInputTokens,
+		outputTokens: result.data.totalOutputTokens,
+		cost: result.data.totalCost,
+	}
+}
+
 async function runDemo(): Promise<void> {
-	const widget = createWidget({
-		position: "floating",
-		boxStyle: "rounded",
-		compactMode: false,
-	})
-
-	widget.setUsageData(MOCK_DATA)
-
-	let positionIndex = 0
-	let styleIndex = 0
-	let hasData = true
-	const styles = ["rounded", "single", "double"] as const
+	let visible = true
+	let showLimits = true
+	let showApiUsage = true
+	let apiData = { inputTokens: 1_234_567, outputTokens: 456_789, cost: 47.25 }
 
 	const stdin = process.stdin
 	stdin.setRawMode(true)
@@ -68,54 +159,81 @@ async function runDemo(): Promise<void> {
 	stdin.setEncoding("utf8")
 
 	function render(): void {
-		const output = widget.renderAtPosition()
 		process.stdout.write(clearScreen())
-		process.stdout.write(output)
+
+		if (!visible) {
+			process.stdout.write(text("Widget hidden. Press 't' to show.", ANSI.dim))
+			return
+		}
+
+		const width = 44
+		let row = 2
+
+		if (showLimits) {
+			const limitsLines = renderLimitsWidget(MOCK_LIMITS, width)
+			for (const line of limitsLines) {
+				process.stdout.write(`\x1b[${row};2H${line}`)
+				row++
+			}
+			row++
+		}
+
+		if (showApiUsage) {
+			const apiLines = renderApiUsageWidget(
+				apiData.inputTokens,
+				apiData.outputTokens,
+				apiData.cost,
+				width,
+			)
+			for (const line of apiLines) {
+				process.stdout.write(`\x1b[${row};2H${line}`)
+				row++
+			}
+		}
 
 		const status = [
-			`Position: ${text(widget.isVisible() ? (POSITIONS[positionIndex] ?? "floating") : "hidden", ANSI.fg.cyan)}`,
-			`Style: ${text(styles[styleIndex] ?? "rounded", ANSI.fg.magenta)}`,
-			`Compact: ${text(widget.isVisible() ? "off" : "on", ANSI.fg.yellow)}`,
-			`Data: ${text(hasData ? "mock" : "empty", ANSI.fg.green)}`,
-		].join("  │  ")
+			`Limits: ${showLimits ? "on" : "off"}`,
+			`API: ${showApiUsage ? "on" : "off"}`,
+		].join(" | ")
 
-		process.stdout.write(`\x1b[${process.stdout.rows};1H${text(status, ANSI.dim)}`)
 		process.stdout.write(
-			`\x1b[${process.stdout.rows};${process.stdout.columns - 20}H${text("Press 'q' to quit", ANSI.dim)}`,
+			`\x1b[${process.stdout.rows};1H${text(status, ANSI.dim)}  ${text("Press 'q' to quit", ANSI.dim)}`,
 		)
 	}
 
 	process.stdout.write(hideCursor())
 	render()
 
-	stdin.on("data", (key: string) => {
+	stdin.on("data", async (key: string) => {
 		switch (key) {
 			case "t":
-				widget.toggle()
+				visible = !visible
 				break
 
-			case "p":
-				positionIndex = (positionIndex + 1) % POSITIONS.length
-				widget.setPosition(POSITIONS[positionIndex] ?? "floating")
+			case "1":
+				showLimits = true
+				showApiUsage = false
 				break
 
-			case "c":
-				widget.setConfig({ compactMode: !widget.isVisible() })
+			case "2":
+				showLimits = false
+				showApiUsage = true
 				break
 
-			case "s": {
-				styleIndex = (styleIndex + 1) % styles.length
-				const newStyle = styles[styleIndex]
-				if (newStyle) {
-					widget.setConfig({ boxStyle: newStyle })
+			case "3":
+				showLimits = true
+				showApiUsage = true
+				break
+
+			case "a": {
+				process.stdout.write(clearScreen())
+				process.stdout.write(text("Fetching API data...", ANSI.fg.yellow))
+				const data = await fetchRealData()
+				if (data) {
+					apiData = data
 				}
 				break
 			}
-
-			case "d":
-				hasData = !hasData
-				widget.setUsageData(hasData ? MOCK_DATA : [])
-				break
 
 			case "q":
 			case "\x03":
@@ -149,9 +267,21 @@ async function main(): Promise<void> {
 	}
 
 	if (args.includes("--static")) {
-		const widget = createWidget()
-		widget.setUsageData(MOCK_DATA)
-		console.log(widget.toString())
+		const width = 44
+		console.log(renderLimitsWidget(MOCK_LIMITS, width).join("\n"))
+		console.log()
+		console.log(renderApiUsageWidget(1_234_567, 456_789, 47.25, width).join("\n"))
+		return
+	}
+
+	if (args.includes("--api")) {
+		const data = await fetchRealData()
+		if (data) {
+			const width = 44
+			console.log(
+				renderApiUsageWidget(data.inputTokens, data.outputTokens, data.cost, width).join("\n"),
+			)
+		}
 		return
 	}
 
