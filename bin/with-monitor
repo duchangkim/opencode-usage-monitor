@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -e
+
+MONITOR_WIDTH="${USAGE_MONITOR_WIDTH:-25}"
+SESSION_NAME="${USAGE_MONITOR_SESSION:-monitor-$$}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MONITOR_CMD="bun run ${SCRIPT_DIR}/../src/cli/index.ts"
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS] -- COMMAND [args...]
+
+Run any command with usage monitor in a tmux side pane.
+
+OPTIONS:
+    -w, --width PERCENT   monitor pane width percentage (default: 25)
+    -l, --left            put monitor on left (default: right)
+    -h, --help            show this help
+
+EXAMPLES:
+    $(basename "$0") -- opencode
+    $(basename "$0") -- nvim .
+    $(basename "$0") -w 30 -- opencode --model opus
+    $(basename "$0") -l -- zsh
+
+ENVIRONMENT:
+    USAGE_MONITOR_WIDTH     default pane width percentage
+EOF
+}
+
+POSITION="right"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -w|--width)
+            MONITOR_WIDTH="$2"
+            shift 2
+            ;;
+        -l|--left)
+            POSITION="left"
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [[ $# -eq 0 ]]; then
+    echo "Error: No command specified." >&2
+    usage >&2
+    exit 1
+fi
+
+MAIN_CMD="$*"
+
+if ! command -v tmux &> /dev/null; then
+    echo "Error: tmux is required but not installed." >&2
+    exit 1
+fi
+
+if ! command -v bun &> /dev/null; then
+    echo "Error: bun is required but not installed." >&2
+    exit 1
+fi
+
+tmux new-session -d -s "$SESSION_NAME" "$MAIN_CMD"
+
+if [[ "$POSITION" == "left" ]]; then
+    tmux split-window -h -b -t "$SESSION_NAME" -p "$MONITOR_WIDTH" "$MONITOR_CMD"
+    tmux select-pane -t "$SESSION_NAME:0.1"
+else
+    tmux split-window -h -t "$SESSION_NAME" -p "$MONITOR_WIDTH" "$MONITOR_CMD"
+    tmux select-pane -t "$SESSION_NAME:0.0"
+fi
+
+tmux attach-session -t "$SESSION_NAME"
