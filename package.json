@@ -1,0 +1,48 @@
+{
+	"name": "opencode-usage-monitor",
+	"version": "0.1.0",
+	"description": "OpenCode plugin for monitoring LLM API usage and costs across major providers",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": ["dist"],
+	"scripts": {
+		"build": "bun build src/index.ts --outdir dist --target bun",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"test": "bun test",
+		"install:local": "bun run build && mkdir -p ~/.config/opencode/plugins && cp dist/index.js ~/.config/opencode/plugins/usage-monitor.js",
+		"prepublishOnly": "bun run typecheck && bun run lint && bun run build"
+	},
+	"keywords": [
+		"opencode",
+		"opencode-plugin",
+		"llm",
+		"usage",
+		"monitoring",
+		"anthropic",
+		"openai",
+		"gemini",
+		"openrouter"
+	],
+	"author": "",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/user/opencode-usage-monitor"
+	},
+	"dependencies": {
+		"zod": "^3.24.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.0",
+		"@opencode-ai/plugin": "^1.1.39",
+		"@types/bun": "latest",
+		"typescript": "^5.7.0"
+	},
+	"peerDependencies": {
+		"@opencode-ai/plugin": ">=1.0.0"
+	}
+}

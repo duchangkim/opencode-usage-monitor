@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# Lock files (using bun.lock)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Cache
+.cache/
+*.tsbuildinfo
