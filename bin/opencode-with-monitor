@@ -3,7 +3,18 @@ set -e
 
 SESSION_NAME="${USAGE_MONITOR_SESSION:-opencode}"
 MONITOR_WIDTH="${USAGE_MONITOR_WIDTH:-25}"
-MONITOR_CMD="bun run $(dirname "$0")/../src/cli/index.ts"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if command -v usage-monitor &> /dev/null; then
+    MONITOR_CMD="usage-monitor"
+elif [[ -f "$SCRIPT_DIR/../dist/cli.js" ]]; then
+    MONITOR_CMD="bun run $SCRIPT_DIR/../dist/cli.js"
+elif [[ -f "$SCRIPT_DIR/../src/cli/index.ts" ]]; then
+    MONITOR_CMD="bun run $SCRIPT_DIR/../src/cli/index.ts"
+else
+    echo "Error: usage-monitor not found. Run 'bun run build' first." >&2
+    exit 1
+fi
 
 usage() {
     cat <<EOF
@@ -14,24 +25,35 @@ Start opencode with usage monitor in a tmux side pane.
 OPTIONS:
     -s, --session NAME    tmux session name (default: opencode)
     -w, --width PERCENT   monitor pane width percentage (default: 25)
+    -l, --left            put monitor on left side (default: right)
     -m, --monitor-only    only start the monitor, no opencode
     -a, --attach          attach to existing session if exists
+    -k, --kill            kill existing session and start fresh
     -h, --help            show this help
 
 EXAMPLES:
     $(basename "$0")                    # Start with defaults
-    $(basename "$0") -w 30              # Wider monitor pane
+    $(basename "$0") -w 30              # Wider monitor pane (30%)
+    $(basename "$0") -l                 # Monitor on left side
     $(basename "$0") -s myproject       # Custom session name
     $(basename "$0") -- --model opus    # Pass args to opencode
+    $(basename "$0") -k                 # Kill existing and restart
 
 ENVIRONMENT:
     USAGE_MONITOR_SESSION   default session name
     USAGE_MONITOR_WIDTH     default pane width percentage
+
+REQUIREMENTS:
+    - tmux (brew install tmux)
+    - bun (curl -fsSL https://bun.sh/install | bash)
+    - opencode (bun install -g opencode)
 EOF
 }
 
 MONITOR_ONLY=false
 ATTACH_EXISTING=false
+KILL_EXISTING=false
+MONITOR_LEFT=false
 OPENCODE_ARGS=""
 
 while [[ $# -gt 0 ]]; do
@@ -44,12 +66,20 @@ while [[ $# -gt 0 ]]; do
             MONITOR_WIDTH="$2"
             shift 2
             ;;
+        -l|--left)
+            MONITOR_LEFT=true
+            shift
+            ;;
         -m|--monitor-only)
             MONITOR_ONLY=true
             shift
             ;;
         -a|--attach)
             ATTACH_EXISTING=true
+            shift
+            ;;
+        -k|--kill)
+            KILL_EXISTING=true
             shift
             ;;
         -h|--help)
@@ -71,33 +101,55 @@ done
 
 if ! command -v tmux &> /dev/null; then
     echo "Error: tmux is required but not installed." >&2
+    echo "" >&2
+    echo "Install with:" >&2
+    echo "  macOS:  brew install tmux" >&2
+    echo "  Ubuntu: sudo apt install tmux" >&2
+    echo "  Fedora: sudo dnf install tmux" >&2
     exit 1
 fi
 
-if ! command -v bun &> /dev/null; then
-    echo "Error: bun is required but not installed." >&2
+if ! command -v opencode &> /dev/null; then
+    echo "Error: opencode is required but not installed." >&2
+    echo "" >&2
+    echo "Install with:" >&2
+    echo "  bun install -g opencode" >&2
     exit 1
 fi
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    if [[ "$ATTACH_EXISTING" == true ]]; then
+    if [[ "$KILL_EXISTING" == true ]]; then
+        echo "Killing existing session: $SESSION_NAME"
+        tmux kill-session -t "$SESSION_NAME"
+    elif [[ "$ATTACH_EXISTING" == true ]]; then
         echo "Attaching to existing session: $SESSION_NAME"
-        tmux attach-session -t "$SESSION_NAME"
-        exit 0
+        exec tmux attach-session -t "$SESSION_NAME"
     else
-        echo "Session '$SESSION_NAME' already exists. Use -a to attach or choose different name." >&2
+        echo "Session '$SESSION_NAME' already exists." >&2
+        echo "  Use -a to attach, -k to kill and restart" >&2
         exit 1
     fi
 fi
 
 echo "Starting tmux session: $SESSION_NAME"
+echo "  Monitor width: ${MONITOR_WIDTH}%"
+echo "  Monitor position: $([ "$MONITOR_LEFT" == true ] && echo "left" || echo "right")"
+echo ""
 
 if [[ "$MONITOR_ONLY" == true ]]; then
     tmux new-session -d -s "$SESSION_NAME" "$MONITOR_CMD"
 else
-    tmux new-session -d -s "$SESSION_NAME" "opencode $OPENCODE_ARGS"
-    tmux split-window -h -t "$SESSION_NAME" -p "$MONITOR_WIDTH" "$MONITOR_CMD"
-    tmux select-pane -t "$SESSION_NAME:0.0"
+    OPENCODE_CMD="opencode $OPENCODE_ARGS"
+    
+    if [[ "$MONITOR_LEFT" == true ]]; then
+        tmux new-session -d -s "$SESSION_NAME" "$MONITOR_CMD"
+        tmux split-window -h -t "$SESSION_NAME" -l "$((100 - MONITOR_WIDTH))%" "$OPENCODE_CMD"
+        tmux select-pane -t "$SESSION_NAME:0.1"
+    else
+        tmux new-session -d -s "$SESSION_NAME" "$OPENCODE_CMD"
+        tmux split-window -h -t "$SESSION_NAME" -l "${MONITOR_WIDTH}%" "$MONITOR_CMD"
+        tmux select-pane -t "$SESSION_NAME:0.0"
+    fi
 fi
 
-tmux attach-session -t "$SESSION_NAME"
+exec tmux attach-session -t "$SESSION_NAME"
