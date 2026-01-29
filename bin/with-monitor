@@ -104,13 +104,29 @@ echo "  Command: $MAIN_CMD"
 echo "  Monitor: ${POSITION} side (${MONITOR_WIDTH}%)"
 echo ""
 
-tmux new-session -d -s "$SESSION_NAME" "$MAIN_CMD"
+# Pane naming for easier identification and future toggle support
+MAIN_PANE_NAME="main"
+MONITOR_PANE_NAME="monitor"
+
+# Wrapper to kill session when main command exits
+# This ensures monitor terminates when the main command exits
+WRAPPED_CMD="$MAIN_CMD; tmux kill-session -t '$SESSION_NAME' 2>/dev/null || true"
 
 if [[ "$POSITION" == "left" ]]; then
+    # Monitor on left: create main first, then split left for monitor
+    tmux new-session -d -s "$SESSION_NAME" "bash -c '$WRAPPED_CMD'"
+    tmux select-pane -t "$SESSION_NAME:0.0" -T "$MAIN_PANE_NAME"
     tmux split-window -h -b -t "$SESSION_NAME" -l "${MONITOR_WIDTH}%" "$MONITOR_CMD"
+    tmux select-pane -t "$SESSION_NAME:0.0" -T "$MONITOR_PANE_NAME"
+    # Focus on main pane
     tmux select-pane -t "$SESSION_NAME:0.1"
 else
+    # Monitor on right: create main first, then split right for monitor
+    tmux new-session -d -s "$SESSION_NAME" "bash -c '$WRAPPED_CMD'"
+    tmux select-pane -t "$SESSION_NAME:0.0" -T "$MAIN_PANE_NAME"
     tmux split-window -h -t "$SESSION_NAME" -l "${MONITOR_WIDTH}%" "$MONITOR_CMD"
+    tmux select-pane -t "$SESSION_NAME:0.1" -T "$MONITOR_PANE_NAME"
+    # Focus on main pane
     tmux select-pane -t "$SESSION_NAME:0.0"
 fi
 

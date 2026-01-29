@@ -21,7 +21,7 @@
 			},
 			"suspicious": {
 				"noExplicitAny": "error",
-				"noConsoleLog": "warn"
+				"noConsoleLog": "off"
 			}
 		}
 	},

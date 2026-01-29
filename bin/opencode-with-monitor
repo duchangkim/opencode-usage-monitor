@@ -136,18 +136,40 @@ echo "  Monitor width: ${MONITOR_WIDTH}%"
 echo "  Monitor position: $([ "$MONITOR_LEFT" == true ] && echo "left" || echo "right")"
 echo ""
 
+# Pane naming for easier identification and future toggle support
+MAIN_PANE_NAME="main"
+MONITOR_PANE_NAME="monitor"
+
+# Wrapper script to kill session when main command exits
+# This ensures monitor terminates when opencode exits
+create_main_wrapper() {
+    local cmd="$1"
+    # Execute command, then kill the tmux session when it exits
+    echo "$cmd; tmux kill-session -t '$SESSION_NAME' 2>/dev/null || true"
+}
+
 if [[ "$MONITOR_ONLY" == true ]]; then
     tmux new-session -d -s "$SESSION_NAME" "$MONITOR_CMD"
+    tmux select-pane -t "$SESSION_NAME:0.0" -T "$MONITOR_PANE_NAME"
 else
     OPENCODE_CMD="opencode $OPENCODE_ARGS"
+    WRAPPED_CMD=$(create_main_wrapper "$OPENCODE_CMD")
     
     if [[ "$MONITOR_LEFT" == true ]]; then
+        # Monitor on left: create monitor first, then split for main
         tmux new-session -d -s "$SESSION_NAME" "$MONITOR_CMD"
-        tmux split-window -h -t "$SESSION_NAME" -l "$((100 - MONITOR_WIDTH))%" "$OPENCODE_CMD"
+        tmux select-pane -t "$SESSION_NAME:0.0" -T "$MONITOR_PANE_NAME"
+        tmux split-window -h -t "$SESSION_NAME" -l "$((100 - MONITOR_WIDTH))%" "bash -c '$WRAPPED_CMD'"
+        tmux select-pane -t "$SESSION_NAME:0.1" -T "$MAIN_PANE_NAME"
+        # Focus on main pane (opencode)
         tmux select-pane -t "$SESSION_NAME:0.1"
     else
-        tmux new-session -d -s "$SESSION_NAME" "$OPENCODE_CMD"
+        # Monitor on right: create main first, then split for monitor
+        tmux new-session -d -s "$SESSION_NAME" "bash -c '$WRAPPED_CMD'"
+        tmux select-pane -t "$SESSION_NAME:0.0" -T "$MAIN_PANE_NAME"
         tmux split-window -h -t "$SESSION_NAME" -l "${MONITOR_WIDTH}%" "$MONITOR_CMD"
+        tmux select-pane -t "$SESSION_NAME:0.1" -T "$MONITOR_PANE_NAME"
+        # Focus on main pane (opencode)
         tmux select-pane -t "$SESSION_NAME:0.0"
     fi
 fi
