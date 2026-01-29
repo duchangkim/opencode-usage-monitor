@@ -38,7 +38,7 @@
 		}
 	},
 	"files": {
-		"ignore": ["node_modules", "dist", "*.lock", "bun.lock"]
+		"ignore": ["node_modules", "dist", "*.lock", "bun.lock", "test-results"]
 	},
 	"overrides": [
 		{

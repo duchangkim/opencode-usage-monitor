@@ -172,6 +172,21 @@ tmux를 통한 side-by-side 방식으로 최적의 사용자 경험 제공.
 - [x] 자동 설치 스크립트 (bin/setup)
 - [x] 사용자 친화적 README (tmux 가이드 포함)
 
+### Phase 6: E2E Verification System (NEW)
+
+**Purpose**: 에이전트가 격리된 환경에서 코드 변경사항을 검증할 수 있도록 함.
+
+- [x] Mock OAuth 서버 (9개 시나리오: healthy, authError, rateLimited 등)
+- [x] Test Harness (CLI runner, assertions, JSON reporter)
+- [x] E2E 테스트 스위트 (33개 테스트)
+  - CLI 인자 파싱 테스트
+  - TUI 렌더링 테스트
+  - API 응답 처리 테스트
+  - tmux 통합 테스트
+- [x] Docker 환경 (Dockerfile.e2e, docker-compose 서비스)
+- [x] 검증 스크립트 (scripts/e2e.sh)
+- [x] 환경변수 문서화 (.env.example)
+
 ## Configuration
 
 ```yaml
@@ -237,6 +252,7 @@ usage-monitor --config ~/.config/usage-monitor/config.yaml
 - **tmux integration** (bin/opencode-with-monitor, bin/with-monitor, bin/setup)
 - **OpenCode plugin** (rate_limits, monitor tools)
 - **README.md documentation** (tmux guide 포함)
+- **E2E Verification System** (Mock server, test harness, Docker integration)
 
 ### 🎉 All Phases Complete!
 

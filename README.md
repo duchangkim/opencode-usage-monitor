@@ -156,9 +156,12 @@ tmux kill-session -t opencode
 
 | Variable                         | Description                | Default  |
 | -------------------------------- | -------------------------- | -------- |
+| `ANTHROPIC_ADMIN_API_KEY`        | Admin API key (org usage)  | -        |
 | `USAGE_MONITOR_WIDTH`            | Monitor pane width (%)     | 25       |
 | `USAGE_MONITOR_SESSION`          | tmux session name          | opencode |
 | `USAGE_MONITOR_REFRESH_INTERVAL` | Refresh interval (seconds) | 30       |
+
+See `.env.example` for all available variables and setup instructions.
 
 ### Config File
 
@@ -267,6 +270,27 @@ bun run typecheck
 # Lint
 bun run lint
 ```
+
+### Testing
+
+```bash
+# Run all E2E tests
+bun run test:e2e
+
+# Run E2E tests in Docker (isolated environment)
+bun run test:e2e:docker
+
+# Generate JSON test report
+./scripts/e2e.sh report
+
+# Start mock OAuth server for manual testing
+bun run mock-server
+
+# Run specific scenario
+SCENARIO=highUsage bun run mock-server
+```
+
+Available test scenarios: `healthy`, `lowUsage`, `highUsage`, `rateLimited`, `authError`, `enterpriseOrg`, `noLimits`, `slowResponse`, `serverError`
 
 ## License
 

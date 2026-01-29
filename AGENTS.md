@@ -1,22 +1,22 @@
-# AGENTS.md - OpenCode Usage Monitor Plugin
+# AGENTS.md - OpenCode Usage Monitor
 
 ## Project Overview
 
-This is an OpenCode plugin for monitoring LLM API usage and costs across major providers:
+Real-time Claude rate limit monitoring tool that runs alongside OpenCode using tmux.
 
-- **Anthropic** (Claude)
-- **OpenAI** (GPT-4, GPT-4o, etc.)
-- **Google** (Gemini/Vertex AI)
-- **OpenRouter**
-
-The plugin tracks token consumption, estimated costs, and displays usage statistics within OpenCode sessions.
+**Core Features:**
+- OAuth-based rate limit tracking (5-hour, 7-day windows)
+- Profile info display (user, organization, plan badges)
+- Optional Admin API usage/cost tracking for organizations
+- tmux integration for side-by-side display with OpenCode
 
 ## Tech Stack
 
-- **Runtime**: Bun (OpenCode's native runtime)
+- **Runtime**: Bun
 - **Language**: TypeScript (strict mode)
-- **Framework**: @opencode-ai/plugin
+- **Framework**: @opencode-ai/plugin (for OpenCode integration)
 - **Package Manager**: Bun (bun.lock)
+- **Linter**: Biome
 
 ## Build / Lint / Test Commands
 
@@ -26,36 +26,34 @@ bun install
 
 # Type check
 bun run typecheck
-# or directly:
-bunx tsc --noEmit
 
-# Build (compile TypeScript)
+# Build
 bun run build
 
-# Lint (using Biome - recommended for OpenCode ecosystem)
+# Lint
 bun run lint
-bunx @biomejs/biome check .
+bun run lint:fix
 
 # Format
 bun run format
-bunx @biomejs/biome format --write .
 
-# Run tests
+# Run all tests
 bun test
 
-# Run single test file
-bun test src/providers/anthropic.test.ts
+# Run E2E tests only
+bun run test:e2e
 
-# Run tests matching pattern
-bun test --grep "usage"
+# Run E2E tests in Docker (isolated environment)
+bun run test:e2e:docker
 
-# Watch mode
-bun test --watch
+# Generate E2E test report (JSON)
+./scripts/e2e.sh report
 
-# Local development - install to opencode plugins directory
-bun run install:local
-# or manually:
-cp dist/index.js ~/.config/opencode/plugins/usage-monitor.js
+# Start mock OAuth server for testing
+bun run mock-server
+
+# Run CLI locally
+bun run cli --once
 ```
 
 ## Project Structure
@@ -63,23 +61,164 @@ cp dist/index.js ~/.config/opencode/plugins/usage-monitor.js
 ```
 opencode-usage-monitor/
 ├── src/
-│   ├── index.ts              # Plugin entry point, exports Plugin function
-│   ├── types.ts              # Shared TypeScript types
-│   ├── providers/            # Provider-specific usage fetchers
-│   │   ├── anthropic.ts
-│   │   ├── openai.ts
-│   │   ├── google.ts
-│   │   └── openrouter.ts
-│   ├── utils/
-│   │   ├── cache.ts          # Rate limiting and caching
-│   │   ├── format.ts         # Display formatting helpers
-│   │   └── config.ts         # Config file handling
-│   └── hooks/                # OpenCode event hooks
-│       └── session.ts
-├── package.json
-├── tsconfig.json
-├── biome.json
+│   ├── index.ts              # OpenCode plugin entry point
+│   ├── cli/
+│   │   └── index.ts          # Standalone CLI entry point
+│   ├── config/
+│   │   ├── index.ts          # Config exports
+│   │   ├── loader.ts         # YAML config loader
+│   │   └── schema.ts         # Zod validation schema
+│   ├── data/
+│   │   ├── index.ts          # Data layer exports
+│   │   ├── admin-api.ts      # Anthropic Admin API client
+│   │   ├── oauth-api.ts      # OAuth API client (rate limits)
+│   │   └── oauth-credentials.ts  # Credentials loader
+│   ├── monitor/
+│   │   ├── index.ts          # Monitor exports
+│   │   └── oauth-monitor.ts  # Auto-refresh monitor
+│   └── tui/
+│       ├── index.ts          # TUI exports
+│       ├── renderer.ts       # Box drawing, text rendering
+│       ├── progress.ts       # Progress bar component
+│       └── styles.ts         # ANSI styles
+├── bin/
+│   ├── opencode-with-monitor # tmux launcher for OpenCode
+│   ├── with-monitor          # Generic tmux launcher
+│   └── setup                 # Auto-install script
+├── test/
+│   ├── e2e/                  # E2E test scenarios
+│   │   ├── cli.test.ts       # CLI argument parsing
+│   │   ├── tui.test.ts       # TUI rendering
+│   │   ├── api.test.ts       # API response handling
+│   │   └── tmux.test.ts      # tmux integration
+│   ├── fixtures/
+│   │   ├── scenarios.ts      # Mock data scenarios
+│   │   └── credentials.json  # Test credentials
+│   ├── harness/
+│   │   ├── cli-runner.ts     # CLI execution wrapper
+│   │   ├── assertions.ts     # Output verification
+│   │   ├── reporter.ts       # JSON report generator
+│   │   └── generate-report.ts
+│   └── mock-server/
+│       └── oauth-server.ts   # Mock OAuth API server
+├── scripts/
+│   ├── verify.sh             # Static analysis verification
+│   └── e2e.sh                # E2E test runner script
+├── Dockerfile                # Basic build environment
+├── Dockerfile.e2e            # E2E test environment (with tmux)
+├── docker-compose.yml        # Docker services
+├── .env.example              # Environment variables template
 └── AGENTS.md
+```
+
+## Testing Strategy
+
+### Test Pyramid
+
+1. **E2E Tests (Primary)**: Run actual CLI with mock OAuth server
+2. **Integration Tests**: Test harness verifies CLI output
+3. **Manual Verification**: Docker environment for agent verification
+
+### E2E Test Categories
+
+| Category | File | Coverage |
+|----------|------|----------|
+| CLI Arguments | `cli.test.ts` | --help, --once, --oauth-only flags |
+| TUI Rendering | `tui.test.ts` | Box drawing, progress bars, responsive layout |
+| API Handling | `api.test.ts` | Success, 401, 429, 500 responses |
+| tmux Integration | `tmux.test.ts` | Session creation, pane capture |
+
+### Running E2E Tests
+
+```bash
+# Local (fast feedback)
+bun run test:e2e
+
+# Docker (isolated, CI-like)
+docker compose run --rm e2e
+
+# With JSON report
+./scripts/e2e.sh report
+cat test-results/report.json
+```
+
+### Mock Server Scenarios
+
+Available scenarios for testing different states:
+
+| Scenario | Description |
+|----------|-------------|
+| `healthy` | Normal usage (44% 5h, 12% 7d) |
+| `lowUsage` | Low usage, PRO user |
+| `highUsage` | Near limits (85% 5h, 78% 7d) |
+| `rateLimited` | 429 error response |
+| `authError` | 401 error response |
+| `enterpriseOrg` | Enterprise organization user |
+| `noLimits` | No rate limits active |
+| `slowResponse` | 3 second delay |
+| `serverError` | 500 error response |
+
+## Agent Verification Workflow
+
+### When Implementing Features
+
+1. **Plan**: Include test scenarios in implementation plan
+2. **Implement**: Write code changes
+3. **Verify**: Run E2E tests before marking complete
+
+```bash
+# Quick verification
+bun run test:e2e
+
+# Full Docker verification
+docker compose run --rm e2e
+```
+
+### When Fixing Bugs
+
+1. **Reproduce**: Identify which scenario reproduces the bug
+2. **Add Test**: Add test case that fails (if not exists)
+3. **Fix**: Implement fix
+4. **Verify**: Run tests, check JSON report
+
+```bash
+# Run specific test file
+bun test test/e2e/tui.test.ts
+
+# Check specific scenario output
+./scripts/e2e.sh report
+cat test-results/report.json | jq '.scenarios[] | select(.name == "once_healthy")'
+```
+
+### JSON Report Structure
+
+```json
+{
+  "timestamp": "2026-01-29T12:42:17.494Z",
+  "mode": "mocked",
+  "environment": {
+    "platform": "darwin",
+    "bunVersion": "1.3.6",
+    "docker": false
+  },
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0
+  },
+  "scenarios": [
+    {
+      "name": "once_healthy",
+      "status": "pass",
+      "duration": 46,
+      "assertions": [...],
+      "artifacts": {
+        "stdout": "...",
+        "stderr": ""
+      }
+    }
+  ]
+}
 ```
 
 ## Code Style Guidelines
@@ -88,301 +227,117 @@ opencode-usage-monitor/
 
 ```typescript
 // ALWAYS use strict TypeScript - no implicit any
-// tsconfig.json should have:
-{
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true
-  }
-}
+// NEVER use: as any, @ts-ignore, @ts-expect-error
 
 // GOOD: Explicit types for public APIs
 export interface UsageData {
-  provider: string
-  inputTokens: number
-  outputTokens: number
-  totalCost: number
-  currency: string
-  period: { start: Date; end: Date }
+  fiveHour: RateLimitWindow | null
+  sevenDay: RateLimitWindow | null
 }
 
-// BAD: Avoid 'any' - use 'unknown' if type is truly unknown
-function process(data: any) { }  // Never do this
-function process(data: unknown) { }  // Prefer this, then narrow
+// BAD: Avoid 'any'
+function process(data: any) { }  // Never
+function process(data: unknown) { }  // Prefer, then narrow
 ```
 
 ### Imports
 
 ```typescript
-// Order: 1) External packages, 2) @opencode-ai packages, 3) Relative imports
+// Order: 1) Node builtins, 2) External packages, 3) Relative imports
 // Use type imports when importing only types
 
-import { z } from "zod";
-import type { Plugin, PluginInput, Hooks } from "@opencode-ai/plugin";
-import { tool } from "@opencode-ai/plugin";
-
-import type { UsageData } from "./types";
-import { formatCurrency } from "./utils/format";
-```
-
-### Plugin Structure
-
-```typescript
-// src/index.ts - Standard plugin entry point
-import type { Plugin, PluginInput, Hooks } from "@opencode-ai/plugin";
-
-export const UsageMonitorPlugin: Plugin = async (ctx: PluginInput) => {
-  const { project, client, $, directory, worktree } = ctx;
-
-  // Initialize plugin state here
-
-  return {
-    // Event hooks
-    event: async ({ event }) => {
-      if (event.type === "session.idle") {
-        // Handle session completion
-      }
-    },
-
-    // Tool execution hooks
-    "tool.execute.before": async (input, output) => {
-      // Intercept before tool runs
-    },
-
-    "tool.execute.after": async (input, output) => {
-      // Process after tool completes
-    },
-
-    // Custom tools (optional)
-    tool: {
-      usage: tool({
-        description: "Show LLM usage statistics",
-        args: {
-          provider: tool.schema.string().optional(),
-          days: tool.schema.number().default(7),
-        },
-        async execute(args, context) {
-          // Implementation
-          return "Usage data here";
-        },
-      }),
-    },
-  } satisfies Partial<Hooks>;
-};
-
-// Default export for npm package compatibility
-export default UsageMonitorPlugin;
+import { existsSync } from "node:fs"
+import { z } from "zod"
+import type { Config } from "./schema"
+import { loadConfig } from "./loader"
 ```
 
 ### Error Handling
 
 ```typescript
-// Use explicit error types, never swallow errors silently
-import { NamedError } from "@opencode-ai/util/error";
+// Use Result types for expected failures
+export type OAuthApiResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: OAuthApiError }
 
-class UsageApiError extends Error {
-  constructor(
-    public provider: string,
-    public statusCode: number,
-    message: string
-  ) {
-    super(`[${provider}] ${message}`);
-    this.name = "UsageApiError";
-  }
+// GOOD: Explicit error handling
+const result = await api.getUsage()
+if (!result.success) {
+  // Handle error
+  return
 }
-
-// GOOD: Explicit error handling with logging
-async function fetchUsage(provider: string): Promise<UsageData> {
-  try {
-    const response = await fetch(endpoint);
-    if (!response.ok) {
-      throw new UsageApiError(provider, response.status, await response.text());
-    }
-    return response.json();
-  } catch (error) {
-    await client.app.log({
-      service: "usage-monitor",
-      level: "error",
-      message: `Failed to fetch ${provider} usage`,
-      extra: { error: String(error) },
-    });
-    throw error;
-  }
-}
+// Use result.data
 ```
 
-### Naming Conventions
+### Environment Variables
+
+Testability hooks via environment variables:
 
 ```typescript
-// Files: kebab-case
-// src/providers/open-router.ts
-
-// Types/Interfaces: PascalCase
-interface ProviderConfig {}
-type UsageResponse = {};
-
-// Functions/Variables: camelCase
-function fetchAnthropicUsage() {}
-const tokenCount = 0;
-
-// Constants: SCREAMING_SNAKE_CASE
-const DEFAULT_CACHE_TTL = 60_000;
-const MAX_RETRY_ATTEMPTS = 3;
-
-// Plugin exports: PascalCase with 'Plugin' suffix
-export const UsageMonitorPlugin: Plugin = async (ctx) => {};
+// Production code should support test overrides
+const OAUTH_API_BASE = process.env.OAUTH_API_BASE ?? "https://api.anthropic.com/api/oauth"
 ```
 
-### Configuration
+## Docker Services
 
-```typescript
-// Use Zod for runtime validation of config
-import { z } from "zod";
+| Service | Purpose | Command |
+|---------|---------|---------|
+| `e2e` | Run E2E tests | `docker compose run --rm e2e` |
+| `e2e-report` | Generate JSON report | `docker compose run --rm e2e-report` |
+| `e2e-shell` | Debug shell | `docker compose run --rm e2e-shell` |
+| `mock-server` | Standalone mock server | `docker compose up mock-server` |
+| `verify` | Static analysis | `docker compose run --rm verify` |
 
-const ConfigSchema = z.object({
-  providers: z
-    .object({
-      anthropic: z
-        .object({
-          apiKey: z.string().optional(),
-          enabled: z.boolean().default(true),
-        })
-        .optional(),
-      openai: z
-        .object({
-          apiKey: z.string().optional(),
-          organizationId: z.string().optional(),
-          enabled: z.boolean().default(true),
-        })
-        .optional(),
-    })
-    .optional(),
-  refreshInterval: z.number().min(60).default(300), // seconds
-  displayCurrency: z.enum(["USD", "EUR", "KRW"]).default("USD"),
-});
+## Environment Variables
 
-type Config = z.infer<typeof ConfigSchema>;
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_ADMIN_API_KEY` | No | Admin API key for org usage |
+| `USAGE_MONITOR_REFRESH_INTERVAL` | No | Refresh interval (default: 30s) |
+| `USAGE_MONITOR_SESSION` | No | tmux session name |
+| `USAGE_MONITOR_WIDTH` | No | Monitor pane width % |
+
+Test-only variables:
+| Variable | Description |
+|----------|-------------|
+| `OAUTH_API_BASE` | Override OAuth API URL |
+| `TEST_CREDENTIALS_PATH` | Mock credentials path |
+| `SCENARIO` | Mock server scenario |
+
+## Verification Checklist
+
+Before considering a task complete:
+
+- [ ] `bun run typecheck` passes
+- [ ] `bun run lint` passes
+- [ ] `bun run test:e2e` passes (33 tests)
+- [ ] If UI changed: verify with `bun run cli --once`
+- [ ] If Docker config changed: `docker compose build e2e`
+
+## API Reference
+
+### OAuth API (Rate Limits)
+
+```
+GET /api/oauth/usage
+GET /api/oauth/profile
+Authorization: Bearer {oauth_token}
+anthropic-beta: oauth-2025-04-20
 ```
 
-### Logging
+### Admin API (Organization Usage)
 
-```typescript
-// Use client.app.log() for structured logging, NOT console.log
-await client.app.log({
-  service: "usage-monitor",
-  level: "info", // debug | info | warn | error
-  message: "Fetched usage data",
-  extra: {
-    provider: "anthropic",
-    tokenCount: 1500,
-  },
-});
+```
+GET /v1/organizations/cost_report
+GET /v1/organizations/usage_report/claude_code
+x-api-key: {admin_api_key}
 ```
 
-### Testing
+## Authentication
 
-```typescript
-// src/providers/anthropic.test.ts
-import { describe, it, expect, mock, beforeEach } from "bun:test";
-import { fetchAnthropicUsage } from "./anthropic";
+Credentials are auto-loaded from:
 
-describe("Anthropic Usage", () => {
-  beforeEach(() => {
-    // Reset mocks
-  });
+1. **OpenCode**: `~/.local/share/opencode/auth.json`
+2. **Claude Code**: `~/.claude/.credentials.json`
 
-  it("should fetch usage data successfully", async () => {
-    const mockResponse = {
-      /* ... */
-    };
-    mock.module("./anthropic", () => ({
-      fetchAnthropicUsage: mock(() => Promise.resolve(mockResponse)),
-    }));
-
-    const result = await fetchAnthropicUsage("test-key");
-    expect(result.totalTokens).toBeGreaterThan(0);
-  });
-
-  it("should handle API errors gracefully", async () => {
-    // Test error scenarios
-  });
-});
-```
-
-## OpenCode Plugin Events Reference
-
-Available events to hook into:
-
-| Event                  | Description               |
-| ---------------------- | ------------------------- |
-| `session.created`      | New session started       |
-| `session.updated`      | Session state changed     |
-| `session.idle`         | Session completed/waiting |
-| `session.error`        | Session encountered error |
-| `message.part.updated` | Message content updated   |
-| `tool.execute.before`  | Before tool execution     |
-| `tool.execute.after`   | After tool execution      |
-
-## Provider API Integration Notes
-
-### Anthropic
-
-- Admin API: `https://admin.anthropic.com/v1/` (requires admin API key, not regular API key)
-- Usage endpoint: `GET /organizations/{org_id}/usage`
-- Billing page (fallback): Manual scraping not recommended
-
-### OpenAI
-
-- Usage API: `https://api.openai.com/v1/usage` (deprecated)
-- Dashboard API: `https://api.openai.com/dashboard/` (unofficial)
-- Consider using organization billing page data
-
-### Google (Gemini/Vertex)
-
-- Vertex AI pricing varies by region
-- Use Google Cloud Billing API for accurate costs
-- Requires OAuth2 service account credentials
-
-### OpenRouter
-
-- Usage API: `https://openrouter.ai/api/v1/auth/key`
-- Returns credits remaining and usage history
-- Simple API key authentication
-
-## Dependencies
-
-```json
-{
-  "dependencies": {
-    "@opencode-ai/plugin": "latest",
-    "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^1.9.0",
-    "@types/bun": "latest",
-    "typescript": "^5.7.0"
-  }
-}
-```
-
-## Publishing to npm
-
-```bash
-# 1. Update version in package.json
-# 2. Build
-bun run build
-
-# 3. Publish
-npm publish --access public
-```
-
-Users install via `opencode.json`:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-usage-monitor"]
-}
-```
+No manual configuration needed for OAuth rate limits.
