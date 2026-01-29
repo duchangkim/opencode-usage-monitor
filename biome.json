@@ -8,7 +8,11 @@
 		"rules": {
 			"recommended": true,
 			"complexity": {
-				"noExcessiveCognitiveComplexity": "warn"
+				"noExcessiveCognitiveComplexity": {
+					"options": {
+						"maxAllowedComplexity": 20
+					}
+				}
 			},
 			"correctness": {
 				"noUnusedImports": "error",
