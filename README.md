@@ -51,6 +51,7 @@ usage-monitor-setup
 ```
 
 The setup script will:
+
 1. Check for missing dependencies
 2. Offer to install them automatically
 3. Configure everything for you
@@ -126,15 +127,15 @@ Once opencode is running with the plugin:
 
 If you're new to tmux, here are the essential commands:
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+b %` | Split pane horizontally |
-| `Ctrl+b "` | Split pane vertically |
-| `Ctrl+b o` | Switch between panes |
-| `Ctrl+b x` | Close current pane |
-| `Ctrl+b d` | Detach from session |
-| `Ctrl+b [` | Scroll mode (q to exit) |
-| `tmux attach` | Reattach to session |
+| Shortcut      | Action                  |
+| ------------- | ----------------------- |
+| `Ctrl+b %`    | Split pane horizontally |
+| `Ctrl+b "`    | Split pane vertically   |
+| `Ctrl+b o`    | Switch between panes    |
+| `Ctrl+b x`    | Close current pane      |
+| `Ctrl+b d`    | Detach from session     |
+| `Ctrl+b [`    | Scroll mode (q to exit) |
+| `tmux attach` | Reattach to session     |
 
 ### Session Management
 
@@ -153,11 +154,11 @@ tmux kill-session -t opencode
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `USAGE_MONITOR_WIDTH` | Monitor pane width (%) | 25 |
-| `USAGE_MONITOR_SESSION` | tmux session name | opencode |
-| `USAGE_MONITOR_REFRESH_INTERVAL` | Refresh interval (seconds) | 30 |
+| Variable                         | Description                | Default  |
+| -------------------------------- | -------------------------- | -------- |
+| `USAGE_MONITOR_WIDTH`            | Monitor pane width (%)     | 25       |
+| `USAGE_MONITOR_SESSION`          | tmux session name          | opencode |
+| `USAGE_MONITOR_REFRESH_INTERVAL` | Refresh interval (seconds) | 30       |
 
 ### Config File
 
@@ -211,6 +212,7 @@ The monitor shows:
 ### "tmux is required but not installed"
 
 Install tmux:
+
 ```bash
 brew install tmux      # macOS
 sudo apt install tmux  # Ubuntu
@@ -219,6 +221,7 @@ sudo apt install tmux  # Ubuntu
 ### "opencode is required but not installed"
 
 Install opencode:
+
 ```bash
 bun install -g opencode
 opencode auth login
@@ -227,6 +230,7 @@ opencode auth login
 ### "Session already exists"
 
 Either attach to it or kill and restart:
+
 ```bash
 # Attach to existing
 opencode-with-monitor -a

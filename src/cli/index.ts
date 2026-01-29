@@ -6,6 +6,14 @@ import { progressBarWithThreshold } from "../tui/progress"
 import { boxBottom, boxDivider, boxRow, boxTop, text } from "../tui/renderer"
 import { ANSI } from "../tui/styles"
 
+const MIN_WIDTH = 40
+const MAX_WIDTH = 80
+
+function getTerminalWidth(): number {
+	const cols = process.stdout.columns || 80
+	return Math.max(MIN_WIDTH, Math.min(cols - 2, MAX_WIDTH))
+}
+
 interface CliArgs {
 	once: boolean
 	apiOnly: boolean
@@ -309,7 +317,6 @@ async function main(): Promise<void> {
 	}
 
 	const config = configResult.config
-	const width = config.widget.width
 
 	const showOAuth = !args.apiOnly && config.oauth.enabled
 	const showApi = !args.oauthOnly && config.anthropic.enabled && config.anthropic.adminApiKey
@@ -319,6 +326,7 @@ async function main(): Promise<void> {
 
 	if (args.once) {
 		const outputs: string[] = []
+		const width = getTerminalWidth()
 
 		if (oauthMonitor) {
 			await oauthMonitor.fetch()
@@ -345,6 +353,7 @@ async function main(): Promise<void> {
 	const render = (): void => {
 		clearScreen()
 		const outputs: string[] = []
+		const width = getTerminalWidth()
 
 		if (oauthMonitor) {
 			outputs.push(renderRateLimitsWidget(oauthMonitor.getState(), width).join("\n"))
@@ -398,6 +407,7 @@ async function main(): Promise<void> {
 
 	process.on("SIGINT", cleanup)
 	process.on("SIGTERM", cleanup)
+	process.stdout.on("resize", render)
 
 	oauthMonitor?.start()
 	apiMonitor?.start()
