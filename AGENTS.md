@@ -1,15 +1,21 @@
-# AGENTS.md - OpenCode Usage Monitor
+# AGENTS.md - Agentic Usage Monitor
+
+> **Specification**: Read [SPEC.md](./SPEC.md) for project goals, architecture, and decisions.  
+> **Translation Maintenance**: When SPEC.md is updated, update [SPEC.ko.md](./SPEC.ko.md) (Korean translation) accordingly.
 
 ## Project Overview
 
 Real-time Claude rate limit monitoring tool that runs alongside OpenCode using tmux.
 
+**Current Name**: `opencode-usage-monitor`  
+**Target Name**: `agentic-usage-monitor` (renaming planned)
+
 **Core Features:**
 
 - OAuth-based rate limit tracking (5-hour, 7-day windows)
 - Profile info display (user, organization, plan badges)
-- Optional Admin API usage/cost tracking for organizations
 - tmux integration for side-by-side display with OpenCode
+- OpenCode plugin for `/monitor` commands
 
 ## Tech Stack
 
@@ -71,7 +77,6 @@ opencode-usage-monitor/
 │   │   └── schema.ts         # Zod validation schema
 │   ├── data/
 │   │   ├── index.ts          # Data layer exports
-│   │   ├── admin-api.ts      # Anthropic Admin API client
 │   │   ├── oauth-api.ts      # OAuth API client (rate limits)
 │   │   └── oauth-credentials.ts  # Credentials loader
 │   ├── monitor/
@@ -88,28 +93,15 @@ opencode-usage-monitor/
 │   └── setup                 # Auto-install script
 ├── test/
 │   ├── e2e/                  # E2E test scenarios
-│   │   ├── cli.test.ts       # CLI argument parsing
-│   │   ├── tui.test.ts       # TUI rendering
-│   │   ├── api.test.ts       # API response handling
-│   │   └── tmux.test.ts      # tmux integration
-│   ├── fixtures/
-│   │   ├── scenarios.ts      # Mock data scenarios
-│   │   └── credentials.json  # Test credentials
-│   ├── harness/
-│   │   ├── cli-runner.ts     # CLI execution wrapper
-│   │   ├── assertions.ts     # Output verification
-│   │   ├── reporter.ts       # JSON report generator
-│   │   └── generate-report.ts
-│   └── mock-server/
-│       └── oauth-server.ts   # Mock OAuth API server
+│   ├── fixtures/             # Mock data
+│   ├── harness/              # Test utilities
+│   └── mock-server/          # Mock OAuth API server
 ├── scripts/
 │   ├── verify.sh             # Static analysis verification
 │   └── e2e.sh                # E2E test runner script
-├── Dockerfile                # Basic build environment
-├── Dockerfile.e2e            # E2E test environment (with tmux)
-├── docker-compose.yml        # Docker services
-├── .env.example              # Environment variables template
-└── AGENTS.md
+├── SPEC.md                   # Technical specification (English)
+├── SPEC.ko.md                # Technical specification (Korean)
+└── AGENTS.md                 # This file
 ```
 
 ## Testing Strategy
@@ -140,12 +132,9 @@ docker compose run --rm e2e
 
 # With JSON report
 ./scripts/e2e.sh report
-cat test-results/report.json
 ```
 
 ### Mock Server Scenarios
-
-Available scenarios for testing different states:
 
 | Scenario        | Description                   |
 | --------------- | ----------------------------- |
@@ -158,69 +147,6 @@ Available scenarios for testing different states:
 | `noLimits`      | No rate limits active         |
 | `slowResponse`  | 3 second delay                |
 | `serverError`   | 500 error response            |
-
-## Agent Verification Workflow
-
-### When Implementing Features
-
-1. **Plan**: Include test scenarios in implementation plan
-2. **Implement**: Write code changes
-3. **Verify**: Run E2E tests before marking complete
-
-```bash
-# Quick verification
-bun run test:e2e
-
-# Full Docker verification
-docker compose run --rm e2e
-```
-
-### When Fixing Bugs
-
-1. **Reproduce**: Identify which scenario reproduces the bug
-2. **Add Test**: Add test case that fails (if not exists)
-3. **Fix**: Implement fix
-4. **Verify**: Run tests, check JSON report
-
-```bash
-# Run specific test file
-bun test test/e2e/tui.test.ts
-
-# Check specific scenario output
-./scripts/e2e.sh report
-cat test-results/report.json | jq '.scenarios[] | select(.name == "once_healthy")'
-```
-
-### JSON Report Structure
-
-```json
-{
-  "timestamp": "2026-01-29T12:42:17.494Z",
-  "mode": "mocked",
-  "environment": {
-    "platform": "darwin",
-    "bunVersion": "1.3.6",
-    "docker": false
-  },
-  "summary": {
-    "total": 6,
-    "passed": 6,
-    "failed": 0
-  },
-  "scenarios": [
-    {
-      "name": "once_healthy",
-      "status": "pass",
-      "duration": 46,
-      "assertions": [...],
-      "artifacts": {
-        "stdout": "...",
-        "stderr": ""
-      }
-    }
-  ]
-}
-```
 
 ## OpenCode Plugin Testing
 
@@ -249,12 +175,12 @@ opencode run "/monitor status"
 
 ### Plugin Commands
 
-| Command | Description |
-|---------|-------------|
+| Command           | Description                           |
+| ----------------- | ------------------------------------- |
 | `/monitor toggle` | Show/hide the rate limit monitor pane |
-| `/monitor status` | Check tmux and monitor status |
-| `/monitor setup` | Show installation instructions |
-| `/monitor help` | Show usage help |
+| `/monitor status` | Check tmux and monitor status         |
+| `/monitor setup`  | Show installation instructions        |
+| `/monitor help`   | Show usage help                       |
 
 ### How It Works
 
@@ -316,16 +242,6 @@ if (!result.success) {
 // Use result.data
 ```
 
-### Environment Variables
-
-Testability hooks via environment variables:
-
-```typescript
-// Production code should support test overrides
-const OAUTH_API_BASE =
-  process.env.OAUTH_API_BASE ?? "https://api.anthropic.com/api/oauth";
-```
-
 ## Docker Services
 
 | Service       | Purpose                | Command                              |
@@ -340,17 +256,17 @@ const OAUTH_API_BASE =
 
 | Variable                         | Required | Description                     |
 | -------------------------------- | -------- | ------------------------------- |
-| `ANTHROPIC_ADMIN_API_KEY`        | No       | Admin API key for org usage     |
 | `USAGE_MONITOR_REFRESH_INTERVAL` | No       | Refresh interval (default: 30s) |
 | `USAGE_MONITOR_SESSION`          | No       | tmux session name               |
 | `USAGE_MONITOR_WIDTH`            | No       | Monitor pane width %            |
 
 Test-only variables:
-| Variable | Description |
-|----------|-------------|
-| `OAUTH_API_BASE` | Override OAuth API URL |
-| `TEST_CREDENTIALS_PATH` | Mock credentials path |
-| `SCENARIO` | Mock server scenario |
+
+| Variable                | Description             |
+| ----------------------- | ----------------------- |
+| `OAUTH_API_BASE`        | Override OAuth API URL  |
+| `TEST_CREDENTIALS_PATH` | Mock credentials path   |
+| `SCENARIO`              | Mock server scenario    |
 
 ## Verification Checklist
 
@@ -358,7 +274,7 @@ Before considering a task complete:
 
 - [ ] `bun run typecheck` passes
 - [ ] `bun run lint` passes
-- [ ] `bun run test:e2e` passes (33 tests)
+- [ ] `bun run test:e2e` passes
 - [ ] If UI changed: verify with `bun run cli --once`
 - [ ] If Docker config changed: `docker compose build e2e`
 
@@ -371,14 +287,6 @@ GET /api/oauth/usage
 GET /api/oauth/profile
 Authorization: Bearer {oauth_token}
 anthropic-beta: oauth-2025-04-20
-```
-
-### Admin API (Organization Usage)
-
-```
-GET /v1/organizations/cost_report
-GET /v1/organizations/usage_report/claude_code
-x-api-key: {admin_api_key}
 ```
 
 ## Authentication
