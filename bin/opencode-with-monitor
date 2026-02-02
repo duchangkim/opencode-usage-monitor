@@ -2,7 +2,8 @@
 set -e
 
 SESSION_NAME="${USAGE_MONITOR_SESSION:-opencode}"
-MONITOR_WIDTH="${USAGE_MONITOR_WIDTH:-25}"
+HORIZONTAL_PANE_SIZE=25
+VERTICAL_PANE_SIZE=15
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if command -v usage-monitor &> /dev/null; then
@@ -20,28 +21,30 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS] [-- opencode args...]
 
-Start opencode with usage monitor in a tmux side pane.
+Start opencode with usage monitor in a tmux pane.
 
 OPTIONS:
     -s, --session NAME    tmux session name (default: opencode)
-    -w, --width PERCENT   monitor pane width percentage (default: 25)
-    -l, --left            put monitor on left side (default: right)
+    -l, --left            put monitor on left (default: right)
+    -r, --right           put monitor on right
+    -t, --top             put monitor on top
+    -b, --bottom          put monitor on bottom
     -m, --monitor-only    only start the monitor, no opencode
     -a, --attach          attach to existing session if exists
     -k, --kill            kill existing session and start fresh
     -h, --help            show this help
 
 EXAMPLES:
-    $(basename "$0")                    # Start with defaults
-    $(basename "$0") -w 30              # Wider monitor pane (30%)
+    $(basename "$0")                    # Start with defaults (monitor on right)
     $(basename "$0") -l                 # Monitor on left side
+    $(basename "$0") -t                 # Monitor on top
+    $(basename "$0") -b                 # Monitor on bottom
     $(basename "$0") -s myproject       # Custom session name
     $(basename "$0") -- --model opus    # Pass args to opencode
     $(basename "$0") -k                 # Kill existing and restart
 
 ENVIRONMENT:
     USAGE_MONITOR_SESSION   default session name
-    USAGE_MONITOR_WIDTH     default pane width percentage
 
 REQUIREMENTS:
     - tmux (brew install tmux)
@@ -53,7 +56,7 @@ EOF
 MONITOR_ONLY=false
 ATTACH_EXISTING=false
 KILL_EXISTING=false
-MONITOR_LEFT=false
+POSITION="right"
 OPENCODE_ARGS=""
 
 while [[ $# -gt 0 ]]; do
@@ -62,12 +65,20 @@ while [[ $# -gt 0 ]]; do
             SESSION_NAME="$2"
             shift 2
             ;;
-        -w|--width)
-            MONITOR_WIDTH="$2"
-            shift 2
-            ;;
         -l|--left)
-            MONITOR_LEFT=true
+            POSITION="left"
+            shift
+            ;;
+        -r|--right)
+            POSITION="right"
+            shift
+            ;;
+        -t|--top)
+            POSITION="top"
+            shift
+            ;;
+        -b|--bottom)
+            POSITION="bottom"
             shift
             ;;
         -m|--monitor-only)
@@ -132,8 +143,7 @@ if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
 fi
 
 echo "Starting tmux session: $SESSION_NAME"
-echo "  Monitor width: ${MONITOR_WIDTH}%"
-echo "  Monitor position: $([ "$MONITOR_LEFT" == true ] && echo "left" || echo "right")"
+echo "  Monitor position: ${POSITION}"
 echo ""
 
 # Pane naming for easier identification and future toggle support
@@ -155,23 +165,35 @@ else
     OPENCODE_CMD="opencode $OPENCODE_ARGS"
     WRAPPED_CMD=$(create_main_wrapper "$OPENCODE_CMD")
     
-    if [[ "$MONITOR_LEFT" == true ]]; then
-        # Monitor on left: create monitor first, then split for main
-        tmux new-session -d -s "$SESSION_NAME" "$MONITOR_CMD"
-        tmux select-pane -t "$SESSION_NAME:0.0" -T "$MONITOR_PANE_NAME"
-        tmux split-window -h -t "$SESSION_NAME" -l "$((100 - MONITOR_WIDTH))%" "bash -c '$WRAPPED_CMD'"
-        tmux select-pane -t "$SESSION_NAME:0.1" -T "$MAIN_PANE_NAME"
-        # Focus on main pane (opencode)
-        tmux select-pane -t "$SESSION_NAME:0.1"
-    else
-        # Monitor on right: create main first, then split for monitor
-        tmux new-session -d -s "$SESSION_NAME" "bash -c '$WRAPPED_CMD'"
-        tmux select-pane -t "$SESSION_NAME:0.0" -T "$MAIN_PANE_NAME"
-        tmux split-window -h -t "$SESSION_NAME" -l "${MONITOR_WIDTH}%" "$MONITOR_CMD"
-        tmux select-pane -t "$SESSION_NAME:0.1" -T "$MONITOR_PANE_NAME"
-        # Focus on main pane (opencode)
-        tmux select-pane -t "$SESSION_NAME:0.0"
-    fi
+    # Create main pane first
+    tmux new-session -d -s "$SESSION_NAME" "bash -c '$WRAPPED_CMD'"
+    tmux select-pane -t "$SESSION_NAME:0.0" -T "$MAIN_PANE_NAME"
+    
+    # Split based on position
+    # -h = horizontal split (left/right), -v = vertical split (top/bottom)
+    # -b = put new pane before (left of / above)
+    case "$POSITION" in
+        left)
+            tmux split-window -h -b -t "$SESSION_NAME" -l "${HORIZONTAL_PANE_SIZE}%" "$MONITOR_CMD"
+            tmux select-pane -t "$SESSION_NAME:0.0" -T "$MONITOR_PANE_NAME"
+            tmux select-pane -t "$SESSION_NAME:0.1"
+            ;;
+        right)
+            tmux split-window -h -t "$SESSION_NAME" -l "${HORIZONTAL_PANE_SIZE}%" "$MONITOR_CMD"
+            tmux select-pane -t "$SESSION_NAME:0.1" -T "$MONITOR_PANE_NAME"
+            tmux select-pane -t "$SESSION_NAME:0.0"
+            ;;
+        top)
+            tmux split-window -v -b -t "$SESSION_NAME" -l "${VERTICAL_PANE_SIZE}%" "$MONITOR_CMD"
+            tmux select-pane -t "$SESSION_NAME:0.0" -T "$MONITOR_PANE_NAME"
+            tmux select-pane -t "$SESSION_NAME:0.1"
+            ;;
+        bottom)
+            tmux split-window -v -t "$SESSION_NAME" -l "${VERTICAL_PANE_SIZE}%" "$MONITOR_CMD"
+            tmux select-pane -t "$SESSION_NAME:0.1" -T "$MONITOR_PANE_NAME"
+            tmux select-pane -t "$SESSION_NAME:0.0"
+            ;;
+    esac
 fi
 
 exec tmux attach-session -t "$SESSION_NAME"

@@ -10,9 +10,8 @@ export const DisplayConfigSchema = z.object({
 })
 
 export const WidgetConfigSchema = z.object({
-	width: z.number().min(30).max(100).optional(),
 	style: z.enum(["rounded", "square", "double", "simple"]).optional(),
-	position: z.enum(["left", "right"]).optional(),
+	position: z.enum(["left", "right", "top", "bottom"]).optional(),
 	colors: z.boolean().optional(),
 })
 
@@ -36,9 +35,8 @@ export interface ResolvedConfig {
 		refreshInterval: number
 	}
 	widget: {
-		width: number
 		style: "rounded" | "square" | "double" | "simple"
-		position: "left" | "right"
+		position: "left" | "right" | "top" | "bottom"
 		colors: boolean
 	}
 }
@@ -53,9 +51,8 @@ export function getDefaultConfig(): ResolvedConfig {
 			refreshInterval: 30,
 		},
 		widget: {
-			width: 52,
 			style: "rounded",
-			position: "left",
+			position: "right",
 			colors: true,
 		},
 	}
@@ -73,7 +70,6 @@ export function resolveConfig(partial: Config): ResolvedConfig {
 			refreshInterval: partial.display?.refreshInterval ?? defaults.display.refreshInterval,
 		},
 		widget: {
-			width: partial.widget?.width ?? defaults.widget.width,
 			style: partial.widget?.style ?? defaults.widget.style,
 			position: partial.widget?.position ?? defaults.widget.position,
 			colors: partial.widget?.colors ?? defaults.widget.colors,

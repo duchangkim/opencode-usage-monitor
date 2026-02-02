@@ -258,7 +258,6 @@ if (!result.success) {
 | -------------------------------- | -------- | ------------------------------- |
 | `USAGE_MONITOR_REFRESH_INTERVAL` | No       | Refresh interval (default: 30s) |
 | `USAGE_MONITOR_SESSION`          | No       | tmux session name               |
-| `USAGE_MONITOR_WIDTH`            | No       | Monitor pane width %            |
 
 Test-only variables:
 

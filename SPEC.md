@@ -249,7 +249,8 @@ The following features from the current implementation will be **removed**:
 
 ### Phase 2: Position Enhancement (v1.1)
 
-- [ ] Add top/bottom position support
+- [x] Add top/bottom position support
+- [x] Remove unused widget.width config (pane size is now fixed at 25%)
 - [ ] Implement compact mode for pane
 - [ ] Add tmux status bar integration
 
@@ -264,6 +265,11 @@ The following features from the current implementation will be **removed**:
 - [ ] Formalize Provider interface
 - [ ] Documentation for adding providers
 - [ ] Consider OpenAI/Gemini if demand exists
+
+### Phase 5: User Experience (v2.1)
+
+- [ ] Pane size persistence (remember resized pane across sessions)
+- [ ] Mouse resize support with auto-save
 
 ## 11. Open Questions
 

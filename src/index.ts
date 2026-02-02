@@ -1,7 +1,10 @@
 import type { Hooks, Plugin, PluginInput } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
+import { loadConfig } from "./config"
 
 const MONITOR_PANE_TITLE = "usage-monitor"
+const HORIZONTAL_PANE_SIZE = 20
+const VERTICAL_PANE_SIZE = 2
 
 function isInTmux(): boolean {
 	return Boolean(process.env.TMUX)
@@ -26,34 +29,53 @@ function getMonitorPaneId(): string | null {
 	return null
 }
 
-function createMonitorPane(): { success: boolean; message: string } {
-	const result = Bun.spawnSync([
-		"tmux",
-		"split-window",
-		"-h",
-		"-l",
-		"25%",
-		"-t",
-		"{right}",
-		"usage-monitor",
-	])
+type Position = "left" | "right" | "top" | "bottom"
+
+function createMonitorPane(position: Position): {
+	success: boolean
+	message: string
+	position: Position
+} {
+	const splitArgs = buildTmuxSplitArgs(position)
+	const result = Bun.spawnSync(["tmux", "split-window", ...splitArgs, "usage-monitor"])
 
 	if (result.exitCode !== 0) {
-		const retryResult = Bun.spawnSync(["tmux", "split-window", "-h", "-l", "25%", "usage-monitor"])
-
-		if (retryResult.exitCode !== 0) {
-			return {
-				success: false,
-				message: `Failed to create pane: ${retryResult.stderr.toString()}`,
-			}
+		return {
+			success: false,
+			message: `Failed to create pane: ${result.stderr.toString()}`,
+			position,
 		}
 	}
 
 	Bun.spawnSync(["tmux", "select-pane", "-T", MONITOR_PANE_TITLE, "-t", "{last}"])
+	focusMainPane(position)
 
-	Bun.spawnSync(["tmux", "select-pane", "-t", "{left}"])
+	return { success: true, message: "Monitor pane created", position }
+}
 
-	return { success: true, message: "Monitor pane created" }
+function buildTmuxSplitArgs(position: Position): string[] {
+	const isVertical = position === "top" || position === "bottom"
+	const size = `${isVertical ? VERTICAL_PANE_SIZE : HORIZONTAL_PANE_SIZE}%`
+	switch (position) {
+		case "left":
+			return ["-h", "-b", "-l", size]
+		case "right":
+			return ["-h", "-l", size]
+		case "top":
+			return ["-v", "-b", "-l", size]
+		case "bottom":
+			return ["-v", "-l", size]
+	}
+}
+
+function focusMainPane(position: Position): void {
+	const directionMap: Record<Position, string> = {
+		left: "{right}",
+		right: "{left}",
+		top: "{down}",
+		bottom: "{up}",
+	}
+	Bun.spawnSync(["tmux", "select-pane", "-t", directionMap[position]])
 }
 
 function closeMonitorPane(paneId: string): { success: boolean; message: string } {
@@ -70,6 +92,9 @@ function closeMonitorPane(paneId: string): { success: boolean; message: string }
 }
 
 export const UsageMonitorPlugin: Plugin = async (_ctx: PluginInput) => {
+	const { config } = loadConfig()
+	const position = config.widget.position
+
 	return {
 		tool: {
 			monitor: tool({
@@ -109,21 +134,27 @@ STEP 1: Install tmux (if not installed)
 STEP 2: Install usage-monitor globally
   bun install -g opencode-usage-monitor
 
-STEP 3: Start opencode inside tmux
+STEP 3: Enable /monitor command (optional)
+  mkdir -p .opencode/commands
+  cat > .opencode/commands/monitor.md << 'EOF'
+---
+description: Toggle usage rate limit monitor pane
+---
+Toggle the usage monitor pane to show/hide Claude rate limits.
+EOF
+
+STEP 4: Start opencode inside tmux
   tmux new-session -s dev
   opencode
 
-STEP 4: Toggle the monitor
-  Ask: "show the rate limit monitor"
-  Or use: /monitor toggle
+STEP 5: Toggle the monitor
+  /monitor  (with autocomplete if step 3 done)
+  Or ask: "show the rate limit monitor"
 
-LAYOUT:
-  ┌─────────────────────────────┬──────────┐
-  │                             │ Monitor  │
-  │      opencode (main)        │ ──────── │
-  │                             │ 5h: 44%  │
-  │                             │ 7d: 4%   │
-  └─────────────────────────────┴──────────┘`
+POSITION:
+  Configure in ~/.config/usage-monitor/config.yaml:
+    widget:
+      position: right  # left, right, top, or bottom`
 					}
 
 					if (!isTmuxInstalled()) {
@@ -180,9 +211,9 @@ Then use /monitor toggle to show the rate limit pane.`
 						return `Error: ${result.message}`
 					}
 
-					const result = createMonitorPane()
+					const result = createMonitorPane(position)
 					if (result.success) {
-						return "Monitor pane opened. Real-time rate limits are now visible on the right."
+						return `Monitor pane opened. Real-time rate limits are now visible on the ${result.position}.`
 					}
 					return `Error: ${result.message}`
 				},

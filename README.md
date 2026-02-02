@@ -79,14 +79,14 @@ bun install -g agentic-usage-monitor
 ### Start OpenCode with Monitor
 
 ```bash
-# Default: monitor on right side (25% width)
+# Default: monitor on right side
 opencode-with-monitor
 
-# Wider monitor pane (30%)
-opencode-with-monitor -w 30
-
-# Monitor on left side
-opencode-with-monitor -l
+# Monitor position options
+opencode-with-monitor -l                 # monitor on left
+opencode-with-monitor -r                 # monitor on right (default)
+opencode-with-monitor -t                 # monitor on top
+opencode-with-monitor -b                 # monitor on bottom
 
 # Custom session name
 opencode-with-monitor -s myproject
@@ -106,9 +106,11 @@ with-monitor -- opencode
 with-monitor -- nvim .
 with-monitor -- zsh
 
-# Options
-with-monitor -w 30 -- opencode        # wider monitor
+# Position options
 with-monitor -l -- opencode           # monitor on left
+with-monitor -r -- opencode           # monitor on right (default)
+with-monitor -t -- opencode           # monitor on top
+with-monitor -b -- opencode           # monitor on bottom
 with-monitor -s myproject -- opencode # custom session name
 ```
 
@@ -124,6 +126,22 @@ Once opencode is running inside tmux with the plugin:
 ```
 
 Or simply ask the agent: "show the rate limit monitor"
+
+### Enable Command Autocomplete (Optional)
+
+To show `/monitor` in OpenCode's command autocomplete:
+
+```bash
+# Per-project
+mkdir -p .opencode/commands
+cp node_modules/opencode-usage-monitor/commands/monitor.md .opencode/commands/
+
+# Or global
+mkdir -p ~/.config/opencode/commands
+cp node_modules/opencode-usage-monitor/commands/monitor.md ~/.config/opencode/commands/
+```
+
+Now `/monitor` will appear in autocomplete when you type `/`.
 
 ## tmux Basics
 
@@ -158,7 +176,6 @@ tmux kill-session -t opencode
 
 | Variable                         | Description                | Default  |
 | -------------------------------- | -------------------------- | -------- |
-| `USAGE_MONITOR_WIDTH`            | Monitor pane width (%)     | 25       |
 | `USAGE_MONITOR_SESSION`          | tmux session name          | opencode |
 | `USAGE_MONITOR_REFRESH_INTERVAL` | Refresh interval (seconds) | 30       |
 
@@ -175,8 +192,8 @@ display:
   refresh_interval: 30
 
 widget:
-  width: 52
   style: rounded
+  position: right  # left, right, top, or bottom
 ```
 
 ## Authentication
