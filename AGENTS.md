@@ -7,8 +7,8 @@
 
 Real-time Claude rate limit monitoring tool that runs alongside OpenCode using tmux.
 
-**Current Name**: `opencode-usage-monitor`  
-**Target Name**: `agentic-usage-monitor` (renaming planned)
+**Package Name**: `agentic-usage-monitor`  
+**CLI Command**: `usage-monitor`
 
 **Core Features:**
 
@@ -66,7 +66,7 @@ bun run cli --once
 ## Project Structure
 
 ```
-opencode-usage-monitor/
+agentic-usage-monitor/
 ├── src/
 │   ├── index.ts              # OpenCode plugin entry point
 │   ├── cli/
@@ -116,7 +116,7 @@ opencode-usage-monitor/
 
 | Category         | File           | Coverage                                      |
 | ---------------- | -------------- | --------------------------------------------- |
-| CLI Arguments    | `cli.test.ts`  | --help, --once, --oauth-only flags            |
+| CLI Arguments    | `cli.test.ts`  | --help, --once flags                          |
 | TUI Rendering    | `tui.test.ts`  | Box drawing, progress bars, responsive layout |
 | API Handling     | `api.test.ts`  | Success, 401, 429, 500 responses              |
 | tmux Integration | `tmux.test.ts` | Session creation, pane capture                |
@@ -277,6 +277,74 @@ Before considering a task complete:
 - [ ] `bun run test:e2e` passes
 - [ ] If UI changed: verify with `bun run cli --once`
 - [ ] If Docker config changed: `docker compose build e2e`
+
+## Git Workflow
+
+### Commit Granularity
+
+Commits should be made in **logical work units**, not by phase or file:
+
+| Good Commit Unit | Bad Commit Unit |
+| --- | --- |
+| "Remove Admin API components" | "Phase 1 changes" |
+| "Rename package to agentic-usage-monitor" | "Update all files" |
+| "Update documentation for v1.0" | "Fix stuff" |
+
+### Commit Message Format
+
+```
+<concise title describing the main change>
+
+<optional body explaining why, not what>
+- Use bullet points for multiple related changes
+- Reference issues/specs if relevant
+```
+
+**Examples:**
+
+```
+Remove Admin API integration
+
+- Delete admin-api.ts and related exports
+- Simplify config schema (remove adminApiKey, showApiUsage)
+- Update CLI to remove --api-only flag
+```
+
+```
+Rename package to agentic-usage-monitor
+```
+
+### Pre-commit Verification
+
+Before committing, ensure:
+
+1. `bun run typecheck` passes
+2. `bun run lint` passes (or `bun run lint:fix` to auto-fix)
+
+These checks are also enforced by pre-commit hooks when configured.
+
+### Using git-master Skill
+
+For git operations, use the `git-master` skill via `delegate_task`:
+
+```
+delegate_task(
+  category="quick",
+  load_skills=["git-master"],
+  prompt="Commit the Admin API removal changes with appropriate message"
+)
+```
+
+This ensures:
+- Atomic commits with proper granularity
+- Consistent commit message format
+- Proper use of git commands (no force push to main, etc.)
+
+### Commit Timing
+
+- Commit after completing each logical unit of work
+- Do NOT batch unrelated changes into a single commit
+- Do NOT wait until end of session to commit everything
 
 ## API Reference
 

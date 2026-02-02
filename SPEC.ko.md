@@ -242,10 +242,10 @@ OAuth 자격 증명 우선순위:
 
 ### Phase 1: 코어 정리 (현재 → v1.0)
 
-- [ ] Admin API 컴포넌트 제거
-- [ ] 설정 단순화 (admin 관련 옵션 제거)
-- [ ] 문서 업데이트
-- [ ] 프로젝트 이름 변경: `agentic-usage-monitor`
+- [x] Admin API 컴포넌트 제거
+- [x] 설정 단순화 (admin 관련 옵션 제거)
+- [x] 문서 업데이트
+- [x] 프로젝트 이름 변경: `agentic-usage-monitor`
 
 ### Phase 2: 위치 기능 강화 (v1.1)
 

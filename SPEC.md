@@ -242,10 +242,10 @@ The following features from the current implementation will be **removed**:
 
 ### Phase 1: Core Cleanup (Current → v1.0)
 
-- [ ] Remove Admin API components
-- [ ] Simplify configuration (remove admin-related options)
-- [ ] Update documentation
-- [ ] Rename project to `agentic-usage-monitor`
+- [x] Remove Admin API components
+- [x] Simplify configuration (remove admin-related options)
+- [x] Update documentation
+- [x] Rename project to `agentic-usage-monitor`
 
 ### Phase 2: Position Enhancement (v1.1)
 

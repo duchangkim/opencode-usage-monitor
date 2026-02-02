@@ -1,4 +1,4 @@
-# OpenCode Usage Monitor
+# Agentic Usage Monitor
 
 Real-time Claude rate limit monitoring alongside OpenCode using tmux.
 
@@ -18,10 +18,10 @@ Real-time Claude rate limit monitoring alongside OpenCode using tmux.
 
 ```bash
 # One-command setup (installs tmux, bun, opencode if needed)
-curl -fsSL https://raw.githubusercontent.com/user/opencode-usage-monitor/main/bin/setup | bash
+curl -fsSL https://raw.githubusercontent.com/user/agentic-usage-monitor/main/bin/setup | bash
 
 # Or manual setup
-bun install -g opencode-usage-monitor
+bun install -g agentic-usage-monitor
 
 # Start opencode with monitor
 opencode-with-monitor
@@ -71,7 +71,7 @@ curl -fsSL https://bun.sh/install | bash
 bun install -g opencode
 
 # 4. Install usage-monitor
-bun install -g opencode-usage-monitor
+bun install -g agentic-usage-monitor
 ```
 
 ## Usage
@@ -158,12 +158,9 @@ tmux kill-session -t opencode
 
 | Variable                         | Description                | Default  |
 | -------------------------------- | -------------------------- | -------- |
-| `ANTHROPIC_ADMIN_API_KEY`        | Admin API key (org usage)  | -        |
 | `USAGE_MONITOR_WIDTH`            | Monitor pane width (%)     | 25       |
 | `USAGE_MONITOR_SESSION`          | tmux session name          | opencode |
 | `USAGE_MONITOR_REFRESH_INTERVAL` | Refresh interval (seconds) | 30       |
-
-See `.env.example` for all available variables and setup instructions.
 
 ### Config File
 
@@ -254,8 +251,8 @@ opencode-with-monitor -k
 
 ```bash
 # Clone the repo
-git clone https://github.com/user/opencode-usage-monitor
-cd opencode-usage-monitor
+git clone https://github.com/user/agentic-usage-monitor
+cd agentic-usage-monitor
 
 # Install dependencies
 bun install
